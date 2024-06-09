@@ -1,0 +1,175 @@
+
+version: '3.8'
+
+services:
+
+  service-driver:
+    build:
+      context: ./service-driver
+    container_name: service-driver
+    ports:
+      - "3001:3001"
+    environment:
+      - DATABASE_URL=mysql://root@db_carRental:3306/db_carRental  # Use the internal port 3306
+      - PORT=3001
+    depends_on:
+      - db_carRental
+    restart: always
+    networks:
+      - car_rental_network
+
+  service-mobil:
+    build:
+      context: ./service-mobil
+    container_name: service-mobil
+    ports:
+      - "3000:3000"
+    environment:
+      - DATABASE_URL=mysql://root@db_carRental:3306/db_carRental  # Use the internal port 3306
+      - PORT=3000
+    depends_on:
+      - db_carRental
+    restart: always
+    networks:
+      - car_rental_network
+
+  service-reservasi:
+    build:
+      context: ./service-reservasi
+    container_name: service-reservasi
+    ports:
+      - "8000:8000"
+    environment:
+      - DB_CONNECTION=mysql
+      - DB_HOST=db_carRental
+      - DB_PORT=3306
+      - DB_DATABASE=db_carRental
+      - DB_USERNAME=root
+      - DB_TABLE=reservasis
+    env_file:
+      - service-reservasi/.env
+    depends_on:
+      - db_carRental
+    restart: always
+    networks:
+      - car_rental_network
+
+  service-user:
+    build:
+      context: ./service-user
+    container_name: service-user
+    ports:
+      - "8001:8001"
+    environment:
+      - DB_CONNECTION=mysql
+      - DB_HOST=db_user
+      - DB_PORT=3306
+      - DB_DATABASE=db_user
+      - DB_USERNAME=root
+      - DB_TABLE=users
+    env_file:
+      - service-user/.env
+    depends_on:
+      - db_user
+    restart: always
+    networks:
+      - car_rental_network
+
+  frontend:
+    build:
+      context: ./frontend
+    container_name: frontend
+    ports:
+      - "8070:80"
+    depends_on:
+      - api-gateway
+    restart: always
+    networks:
+      - car_rental_network
+
+  api-gateway:
+    build:
+      context: ./api-gateway
+    container_name: api-gateway
+    ports:
+      - "4000:4000"
+    depends_on:
+      - service-driver
+      - service-mobil
+      - service-reservasi
+      - service-user
+    restart: always
+    networks:
+      - car_rental_network
+
+  db_carRental:
+    image: mysql:8.0
+    container_name: db_carRental
+    environment:
+      MYSQL_ALLOW_EMPTY_PASSWORD: "yes"
+      MYSQL_DATABASE: db_carRental
+    ports:
+      - "3306:3306" # Expose port 3306 inside the container on port 3306 of the host
+    volumes:
+      - db_carRental-data:/var/lib/mysql
+    restart: always
+    networks:
+      - car_rental_network
+
+  db_user:
+    image: mysql:8.0
+    container_name: db_user
+    environment:
+      MYSQL_ALLOW_EMPTY_PASSWORD: "yes"
+      MYSQL_DATABASE: db_user
+    ports:
+      - "3307:3306" # Expose port 3306 inside the container on port 3307 of the host
+    volumes:
+      - db_user-data:/var/lib/mysql
+    restart: always
+    networks:
+      - car_rental_network
+
+  phpmyadmin-car:
+    image: phpmyadmin/phpmyadmin
+    container_name: phpmyadmin-car
+    environment:
+      PMA_HOST: db_carRental #, db_user
+      PMA_PORT: "3306"
+      PMA_ARBITARY: 1 # # Allows phpMyAdmin to connect to any host
+      PMA_USER: root
+      PMA_PASSWORD: ""
+      UPLOAD_LIMIT: 64M
+    ports:
+      - "8080:80"
+    depends_on:
+      - db_carRental
+    restart: always
+    networks:
+      - car_rental_network
+
+  phpmyadmin-user:
+    image: phpmyadmin/phpmyadmin
+    container_name: phpmyadmin-user
+    environment:
+      PMA_HOST: db_user #, db_user
+      PMA_PORT: "3306"
+      PMA_ARBITARY: 1 # # Allows phpMyAdmin to connect to any host
+      PMA_USER: root
+      PMA_PASSWORD: ""
+      UPLOAD_LIMIT: 64M
+    ports:
+      - "8090:80"
+    depends_on:
+      - db_user
+    restart: always
+    networks:
+      - car_rental_network
+
+volumes:
+  db_carRental-data:
+  db_user-data:
+
+networks:
+  car_rental_network:
+    driver: bridge #
